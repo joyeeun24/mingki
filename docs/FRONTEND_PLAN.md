@@ -15,7 +15,7 @@ Rule Ripple 프론트엔드(Vue 3 + Spring 백엔드)의 작업 순서와 완료
 |---|---|---|---|
 | 1 | 프로젝트 세팅 | ✅ 완료 | `pnpm build` · `lint` · `typecheck` · `test` 통과 |
 | 2 | 도메인 타입 | ✅ 완료 | BACKEND_API.md 5절 응답이 전부 `src/domain/` 타입으로 표현됨 |
-| 3 | 가짜 데이터 | ⬜ | 작업 1건이 아래 3절 항목을 전부 포함하고, 백엔드 응답 모양과 같음 |
+| 3 | 가짜 데이터 | ✅ 완료 | 작업 1건이 아래 3절 항목을 전부 포함하고, 백엔드 응답 모양과 같음 |
 | 4 | API 함수 + mock 서버 | ⬜ | 모든 화면이 쓸 함수가 MSW로 응답하고 상태 전환을 시뮬레이션 |
 | 5 | 화면 8개 | ⬜ | 각 화면이 fixture로 렌더링 |
 | 6 | 상태별 전환 | ⬜ | 작업 상태 12개 전부 화면 전환, 로딩·빈·오류 화면 포함 |
@@ -70,6 +70,9 @@ BACKEND_API.md 5절 응답의 칸 이름과 값을 그대로 따른다. 자유 �
 | 제15조 고령자 65 → 60 | 바꿀 곳 4개(`age >= 65`, `age > 64`, `SENIOR_AGE_MONTHS = 780`, 경과조치 분기) + 상품 규칙 P002 `ELIGIBLE_MIN_AGE`, 대상 아님(`RETIREMENT_AGE = 65`, 상품 규칙 `INCOME_EST_RETIREMENT_AGE` · `SENIOR_RATE_DISCOUNT`), diff, 검증 1회차 실패 → 2회차 통과 |
 | 제8조 DSR 0.40 → 0.35 | 바꿀 곳 3개(`DSR_LIMIT: 0.40`, 하드코딩 `0.4`, 문구 "DSR 40%") + 상품 규칙 P001 · P002 `DSR_LIMIT`, 대상 아님(`LTV_LIMIT = 0.40`, 상품 규칙 `MORTGAGE_LTV_LIMIT`, P003 `DSR_LIMIT 0.35`), diff, 검증 통과 |
 | 제15조의2 고령자 설명 확인 (④ 신규) | 명세서 · 인터페이스 · 실패하는 테스트까지 (PROJECT.md 9절 MVP 범위) |
+
+`creditLoan.spec.ts`가 원문 · 정답지 · 위 표와 맞는지 검사한다.
+리포트 · 평가(데모 비교) 데이터는 4단계에서 API 응답 타입과 함께 만든다.
 
 ## 4. API 함수 + mock 서버 (`src/api/`, `src/mocks/handlers.ts`)
 
