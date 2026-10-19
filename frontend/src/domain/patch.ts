@@ -1,19 +1,19 @@
-/** 패치 적용 · 문법 · 테스트 · 시스템 테스트 */
-export type VerificationStep = 'APPLY' | 'SYNTAX' | 'TEST' | 'SYSTEM_TEST'
+/** PENDING: 검증 전, PASSED: 통과, FAILED: 실패 */
+export type VerifyStatus = 'PENDING' | 'PASSED' | 'FAILED'
 
-/** verify 1회 결과. 시스템 테스트 실패는 locate로, 나머지 실패는 design으로 돌아간다 */
-export type VerificationRound =
-  | { round: number; passed: true }
-  | { round: number; passed: false; failedStep: VerificationStep; message: string }
+/** PATCH: 패치 적용 · 문법 · 테스트 실패(design으로), SYSTEM_TEST: 시스템 테스트 실패(locate로) */
+export type FailureKind = 'PATCH' | 'SYSTEM_TEST'
 
-/** FAILED: 재시도를 다 쓰고도 실패. publish가 막힌다 */
-export type PatchStatus = 'VERIFYING' | 'PASSED' | 'FAILED'
-
-/** design_agent가 파일 묶음 하나에 만든 패치 */
+/** design_agent가 파일 하나에 만든 패치. 검증 회차마다 새로 쌓인다 */
 export interface CodePatch {
-  id: string
-  changeSpecIds: string[]
-  diff: string // unified diff
-  status: PatchStatus
-  rounds: VerificationRound[]
+  id: number
+  bundle: string // 같이 고치는 파일 묶음
+  round: number // 몇 번째 검증인지
+  specKeys: string[] // 이 패치가 고치는 위치
+  filePath: string
+  diff: string
+  verifyStatus: VerifyStatus
+  verifyLog: string | null // 검증 로그, 실패 이유
+  failureKind: FailureKind | null
+  latest: boolean // 지금 회차의 패치인지
 }

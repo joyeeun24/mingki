@@ -2,7 +2,8 @@
 export type Role = 'OFFICER' | 'DEVELOPER'
 
 export interface User {
-  id: string
-  name: string
+  userId: number
+  username: string // 로그인 아이디, 예: officer1
+  displayName: string // 화면에 보이는 이름
   role: Role
 }

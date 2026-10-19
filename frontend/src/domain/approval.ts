@@ -1,18 +1,16 @@
-import type { User } from './user'
+export type ApprovalStep = 'REQUIREMENTS' | 'REVIEW'
 
-export type RequirementDecision = 'CONFIRMED' | 'HELD'
-
-/** CHANGES_REQUESTED: 코멘트로 수정 요청 */
-export type ReviewDecision = 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED'
+/** APPROVE: 승인, REJECT: 거절, REQUEST_CHANGES: 코멘트로 수정 요청 */
+export type ReviewDecision = 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'
 
 interface ApprovalBase {
-  id: string
-  decidedBy: User
-  decidedAt: string // ISO 8601
+  id: number
+  approverId: number // 결정한 사람
   comment: string | null
+  createdAt: string // ISO 8601
 }
 
-/** ① 요건 확정은 요건마다(decisions: 요건 id → 결정), ② 검토 · 승인은 작업 전체에 대해 결정한다 */
+/** ① 요건 확정은 하나라도 확정하면 CONFIRM, 전부 보류면 HOLD. 요건별 결과는 Requirement.status */
 export type Approval =
-  | (ApprovalBase & { stage: 'REQUIREMENTS'; decisions: Record<string, RequirementDecision> })
-  | (ApprovalBase & { stage: 'REVIEW'; decision: ReviewDecision })
+  | (ApprovalBase & { step: 'REQUIREMENTS'; decision: 'CONFIRM' | 'HOLD' })
+  | (ApprovalBase & { step: 'REVIEW'; decision: ReviewDecision })

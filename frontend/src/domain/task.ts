@@ -15,11 +15,20 @@ export type TaskStatus =
 
 /** 규정 v3 → v4 업로드 1건에 대한 분석 작업 */
 export interface AnalysisTask {
-  id: string
+  id: string // UUID
   title: string // 예: 개인신용대출 운영기준 v3 → v4
   status: TaskStatus
-  verificationRound: number | null // VERIFYING일 때 현재 회차 (최대 2회)
-  errorMessage: string | null // FAILED일 때 오류 내용
+  currentNode: string | null // Agent가 마지막으로 알린 단계, 예: verify
+  verifyRound: number // 몇 번째 검증인지, 검증 전이면 0
+  requesterId: number
   createdAt: string // ISO 8601
   updatedAt: string // ISO 8601
+}
+
+/** 업로드한 규정 파일. OLD: 바뀌기 전(v3), NEW: 바뀐 후(v4) */
+export interface RegulationDocument {
+  side: 'OLD' | 'NEW'
+  versionLabel: string // 예: v4
+  filename: string
+  sha256: string
 }
