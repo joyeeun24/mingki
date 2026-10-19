@@ -1,7 +1,7 @@
 # Frontend 작업 계획
 
 Rule Ripple 프론트엔드(Vue 3 + Spring 백엔드)의 작업 순서와 완료 기준.
-설계 근거는 [PROJECT.md](./PROJECT.md).
+설계 근거는 [PROJECT.md](./PROJECT.md), 백엔드 API는 [BACKEND_API.md](./BACKEND_API.md).
 
 ## 원칙
 
@@ -14,26 +14,30 @@ Rule Ripple 프론트엔드(Vue 3 + Spring 백엔드)의 작업 순서와 완료
 | # | 작업 | 상태 | 완료 기준 |
 |---|---|---|---|
 | 1 | 프로젝트 세팅 | ✅ 완료 | `pnpm build` · `lint` · `typecheck` · `test` 통과 |
-| 2 | 도메인 타입 | ✅ 완료 | PROJECT.md 2·5절 항목이 전부 `src/domain/` 타입으로 존재 |
-| 3 | 가짜 데이터 | ⬜ | 시나리오 2개가 PROJECT.md 10절 정답지 항목을 전부 포함 |
+| 2 | 도메인 타입 | ✅ 완료 | BACKEND_API.md 5절 응답이 전부 `src/domain/` 타입으로 표현됨 |
+| 3 | 가짜 데이터 | ⬜ | 작업 1건이 아래 3절 항목을 전부 포함하고, 백엔드 응답 모양과 같음 |
 | 4 | API 함수 + mock 서버 | ⬜ | 모든 화면이 쓸 함수가 MSW로 응답하고 상태 전환을 시뮬레이션 |
-| 5 | 화면 7개 | ⬜ | 각 화면이 fixture로 렌더링 |
+| 5 | 화면 8개 | ⬜ | 각 화면이 fixture로 렌더링 |
 | 6 | 상태별 전환 | ⬜ | 작업 상태 12개 전부 화면 전환, 로딩·빈·오류 화면 포함 |
 | 7 | 데모 리허설 | ⬜ | PROJECT.md 10절 5분 데모를 mock으로 끝까지 클릭, 빠진 버튼 없음 |
 | 8 | 실서버 연결 | ⬜ | `VITE_USE_MOCK=false`로 같은 화면이 동작 |
+| 9 | 배포 | ⬜ | `docker compose up`으로 frontend 컨테이너가 뜨고, 어느 경로에서 새로고침해도 화면이 유지됨 |
 
 ## 2. 도메인 타입 (`src/domain/`)
 
-| 타입 | 출처 |
+BACKEND_API.md 5절 응답의 칸 이름과 값을 그대로 따른다. 자유 형식 칸(`detail`, `payload`)만 뺀다.
+
+| 타입 | 백엔드 응답 |
 |---|---|
-| `AnalysisTask`, `TaskStatus` | PROJECT.md 5절, 아래 상태 목록 |
-| `Requirement` (변경 내용, 대상, 시행일, 경과조치, 근거 조항) | 2절, 5절 requirement_agent |
-| `ChangeSpec` (위치, 유형 ①~④, 판단 이유, 대상 아님 여부와 이유) | 3절, 5절 locate_agent |
-| `CodePatch` (diff, 검증 결과, round) | 5절 design_agent · verify |
-| `TestCase` | 5절 test_agent |
-| `Approval` | 5절 interrupt ①② |
-| `Delivery` (PR · 티켓 링크) | 5절 publish |
-| `User`, `Role` (준법감시 · 상품기획 담당자 / 개발자) | 1절 사용자 |
+| `AnalysisTask`, `TaskStatus` | `TaskSummary`, 아래 상태 목록 |
+| `RegulationDocument` | `documents[]` (업로드한 v3 · v4) |
+| `Requirement` | `requirements[]` |
+| `ChangeSpec` (대상 · 대상 아님) | `targets[]`, `nonTargets[]` |
+| `CodePatch` (검증 회차마다 한 행) | `patches[]` |
+| `TestCase` | `testCases[]` |
+| `Approval` | `approvals[]` |
+| `Delivery` | `deliveries[]` |
+| `User`, `Role` | `GET /api/auth/me` |
 
 ### 작업 상태
 
@@ -53,17 +57,25 @@ Rule Ripple 프론트엔드(Vue 3 + Spring 백엔드)의 작업 순서와 완료
 
 ## 3. 가짜 데이터 (`src/mocks/fixtures/`)
 
-PROJECT.md 10절 시나리오를 그대로 쓴다.
+백엔드 응답 모양(BACKEND_API.md 5절) 그대로 만든다. 그래야 실서버로 바꿀 때 화면과 `mappers.ts`를 그대로 쓴다.
 
-| 시나리오 | 포함할 것 |
+작업 1건 = 규정 v3 → v4 업로드 1번. 요건은 3건이 함께 나온다.
+
+- 규정 원문: `data/regulations/credit-loan-ops/`
+- 코드 위치: PROJECT.md 10절 (샘플 레포가 나오면 맞춘다)
+- 상품 규칙: `eval/answer_key.md` 2절
+
+| 요건 | 포함할 것 |
 |---|---|
-| 고령자 65 → 60 | 요건 1건, 바꿀 곳 4개(`age >= 65`, `age > 64`, `SENIOR_AGE_MONTHS = 780`, 경과조치 분기), 대상 아님 1개(`RETIREMENT_AGE = 65`), diff, 검증 1회차 실패 → 2회차 통과 |
-| DSR 0.40 → 0.35 | 요건 1건, 바꿀 곳 3개(`DSR_LIMIT: 0.40`, 하드코딩 `0.4`, 문구 "DSR 40%"), 대상 아님 1개(`LTV_LIMIT = 0.40`), diff, 검증 통과 |
+| 제15조 고령자 65 → 60 | 바꿀 곳 4개(`age >= 65`, `age > 64`, `SENIOR_AGE_MONTHS = 780`, 경과조치 분기) + 상품 규칙 P002 `ELIGIBLE_MIN_AGE`, 대상 아님(`RETIREMENT_AGE = 65`, 상품 규칙 `INCOME_EST_RETIREMENT_AGE` · `SENIOR_RATE_DISCOUNT`), diff, 검증 1회차 실패 → 2회차 통과 |
+| 제8조 DSR 0.40 → 0.35 | 바꿀 곳 3개(`DSR_LIMIT: 0.40`, 하드코딩 `0.4`, 문구 "DSR 40%") + 상품 규칙 P001 · P002 `DSR_LIMIT`, 대상 아님(`LTV_LIMIT = 0.40`, 상품 규칙 `MORTGAGE_LTV_LIMIT`, P003 `DSR_LIMIT 0.35`), diff, 검증 통과 |
+| 제15조의2 고령자 설명 확인 (④ 신규) | 명세서 · 인터페이스 · 실패하는 테스트까지 (PROJECT.md 9절 MVP 범위) |
 
 ## 4. API 함수 + mock 서버 (`src/api/`, `src/mocks/handlers.ts`)
 
 | 함수 | 용도 | 화면 |
 |---|---|---|
+| `login(username, password)` / `getMe()` | 로그인, 내 역할 | 로그인 |
 | `createTask(files)` | 규정 v3 · v4 업로드, 작업 생성 | 업로드 |
 | `listTasks()` / `getTask(id)` | 목록 · 상세 · 현재 상태 | 목록, 진행 상황 |
 | `getRequirements(taskId)` | 요건 목록과 신 · 구 원문 | ① 요건 확정 |
@@ -73,10 +85,12 @@ PROJECT.md 10절 시나리오를 그대로 쓴다.
 | `reviewPatches(taskId, decision)` | 승인 · 거절 · 수정 요청 | ② 검토 · 승인 |
 | `getReport(taskId)` | 명세서, PR · 티켓 링크 | 리포트 |
 | `getEvaluation(taskId)` | 키워드 검색 비교, 정답지 점수 | 데모 비교 |
+| `getEvents(taskId, after)` | 진행 이벤트 (폴링) | 진행 상황 |
 
-mock은 `createTask` 뒤 시간 흐름으로 상태를 전환하고, interrupt 두 지점에서 멈춘다.
+주소와 응답 모양은 BACKEND_API.md 3·5절을 따른다.
+mock은 같은 모양으로 응답하고, `createTask` 뒤 시간 흐름으로 상태를 전환하고, interrupt 두 지점에서 멈춘다.
 
-## 5. 화면 7개 (`src/pages/`)
+## 5. 화면 8개 (`src/pages/`)
 
 구현 순서는 어려운 것부터.
 
@@ -89,37 +103,54 @@ mock은 `createTask` 뒤 시간 흐름으로 상태를 전환하고, interrupt �
 | 5 | 업로드 | `/tasks/new` | Card, Input(file), Progress | — |
 | 6 | 리포트 | `/tasks/:id/report` | Card, Table, Button | `markdown-it` |
 | 7 | 데모 비교 | `/tasks/:id/evaluation` | Table, Badge, Progress | — |
+| 8 | 로그인 | `/login` | Card, Input, Button | — |
 
 목록 화면 `/tasks`는 4번과 함께 만든다.
+시연에서는 계정 `officer1`(담당자) · `dev1`(개발자)로 로그인해 역할을 바꾼다.
 
 ## 6. 상태별 전환
 
-- 라우터 가드: 작업 상태에 따라 허용되는 화면만 진입. 그 외는 진행 상황으로 리다이렉트.
-- 역할 가드: ① 요건 확정은 담당자, ② 검토 · 승인은 개발자만.
+- 로그인 가드: 토큰이 없으면 `/login`으로 보낸다.
+- 라우터 가드: 작업 상태와 `pendingAction`(백엔드가 알려주는 지금 사람이 할 일)으로 허용 화면을 정한다. 그 외는 진행 상황으로 리다이렉트.
+- 역할 가드: ① 요건 확정은 담당자, ② 검토 · 승인은 개발자만. 서버도 403으로 막는다.
 - 모든 화면에 로딩(Skeleton) · 빈 화면 · 오류 화면.
-- 검증 실패 패치는 승인 버튼 비활성. 서버도 막지만 화면에서도 막는다.
+- `canApprove`가 false면 승인 버튼 비활성. 서버도 409로 막는다.
 
 ## 8. 실서버 연결
 
-백엔드 명세가 확정되면 바꾸는 곳은 세 파일만이어야 한다.
+바꾸는 곳은 아래 네 파일만이어야 한다.
 
 | 파일 | 바뀌는 것 |
 |---|---|
-| `src/api/client.ts` | 인증 헤더, 에러 형식 |
-| `src/api/mappers.ts` | 서버 JSON → 도메인 타입 |
-| `src/composables/useTaskPolling.ts` | 폴링 ↔ SSE |
+| `vite.config.ts` | 개발 서버의 `/api` 요청을 백엔드(`localhost:8080`)로 프록시 |
+| `src/api/client.ts` | `Authorization: Bearer` 토큰, 에러 형식 `{error, message}`, 401이면 로그인으로 |
+| `src/api/mappers.ts` | 서버 JSON → 도메인 타입 (`detail` · `payload` 제거) |
+| `src/composables/useTaskPolling.ts` | `GET /tasks/{id}` + `/events?after=` 폴링 (SSE는 나중에) |
 
-## 백엔드와 확인할 것
+## 9. 배포
 
-| 질문 | 영향 | 프론트 제안 |
+- frontend 컨테이너(nginx)가 빌드 결과를 서빙한다. history 라우팅은 `try_files $uri /index.html`.
+- `/api` 요청은 nginx가 backend로 넘긴다.
+- `docker-compose.yml`의 frontend 서비스 주석을 푼다.
+
+## 백엔드와 확인한 것
+
+답은 BACKEND_API.md 2절.
+
+| 질문 | 답 | 프론트 영향 |
 |---|---|---|
-| 프론트는 Spring만 호출하나? (AI 엔진 직접 호출 없음) | 서버 주소, 인증 | Spring 하나로 통일 |
-| 인증: 세션 쿠키 vs JWT | `client.ts` | 데모는 역할 전환 버튼 |
-| 진행 상황: 폴링 vs SSE | `useTaskPolling` | MVP는 폴링 |
-| ① 요건 확정에서 내용 수정이 되나, 확정 · 보류만인가? | 편집 UI 유무 | 확정 · 보류만 |
-| ② "수정함"은 화면에서 코드를 직접 고치는 것인가? | 코드 편집기 유무 | MVP는 코멘트로 수정 요청 |
-| 검증 실패 패치의 publish 차단에 예외가 있나? | 예외 승인 UI | 예외 없음 |
-| 규정 파일 형식 | 업로드 화면 | 텍스트 · Markdown |
-| 작업 티켓은 어디에 생기나? | 링크 대상 | — |
-| 명세서 출력 형식 | 다운로드 기능 | 화면 + Markdown |
-| history 모드 라우팅 → Spring SPA fallback 필요 | 배포 | 모든 경로 → `index.html` |
+| 프론트는 Spring만 호출하나? | 네 | `/api`만 호출 |
+| 인증 방식 | JWT. 시연은 계정 2개로 로그인 | 로그인 화면, `client.ts` 토큰 헤더 |
+| 진행 상황 전달 | 폴링으로 충분, SSE도 가능 | `useTaskPolling`은 폴링 |
+| ① 요건 확정에서 내용 수정 | 안 됨. 확정 · 보류만 | 편집 UI 없음 |
+| ② 수정 요청 방식 | 코멘트로 요청 (`REQUEST_CHANGES`, 코멘트 필수) | 코드 편집기 없음 |
+| 검증 실패 패치의 승인 예외 | 없음. 해당 위치를 빼고(`excludedSpecKeys`) 승인하거나 수정 요청 | 검토 화면에 위치 제외 선택 |
+| 규정 파일 형식 | `.md` · `.markdown` · `.txt`, UTF-8, 파일당 1MB 이하 | 업로드 전 검사 |
+| 작업 티켓 위치 | 백엔드 `work_tickets`, 링크 `/tickets/{id}`, 참조 `RR-{id}` | 리포트 링크 |
+| 명세서 출력 형식 | `report.markdown` | 화면 렌더링 + 다운로드 |
+| history 라우팅 | frontend nginx가 처리 | 9. 배포 |
+
+## 아직 정할 것
+
+- 제15조의2(④ 신규)를 시연에 넣을지. 정답지에는 요건으로 들어 있어서 가짜 데이터에 넣었다.
+- `articleRef`에 조항 제목도 넣을지 (`제15조` → `제15조(고령자 기준)`).
