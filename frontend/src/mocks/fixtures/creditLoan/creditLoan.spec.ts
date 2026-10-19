@@ -5,7 +5,17 @@ import answerKey from '../../../../../eval/answer_key.md?raw'
 import v3 from '../../../../../data/regulations/credit-loan-ops/v3.md?raw'
 import v4 from '../../../../../data/regulations/credit-loan-ops/v4.md?raw'
 
-import { changeSpecs, deliveries, documents, patches, requirements, task, testCases } from '.'
+import {
+  changeSpecs,
+  deliveries,
+  documents,
+  evaluation,
+  patches,
+  report,
+  requirements,
+  task,
+  testCases,
+} from '.'
 
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
@@ -100,5 +110,12 @@ describe('신용대출 v3 → v4 가짜 데이터', () => {
   it('PR은 묶음마다 하나', () => {
     const bundles = new Set(patches.map((p) => p.bundle))
     expect(deliveries.filter((d) => d.kind === 'PR')).toHaveLength(bundles.size)
+  })
+
+  it('평가의 놓친 곳은 대상, 잘못 고친 곳은 대상 아님이고, 명세서는 요건마다 있다', () => {
+    const byKey = new Map(changeSpecs.map((s) => [s.specKey, s]))
+    for (const k of evaluation.keywordBaseline.missed) expect(byKey.get(k)?.target, k).toBe(true)
+    for (const k of evaluation.keywordBaseline.wrong) expect(byKey.get(k)?.target, k).toBe(false)
+    for (const r of requirements) expect(report.markdown).toContain(`## ${r.reqKey}.`)
   })
 })

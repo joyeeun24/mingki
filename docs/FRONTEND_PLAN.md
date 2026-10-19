@@ -88,7 +88,7 @@ BACKEND_API.md 5절 응답의 칸 이름과 값을 그대로 따른다. 자유 �
 
 ## 3. 가짜 데이터 (`src/mocks/fixtures/`)
 
-백엔드 응답 모양(BACKEND_API.md 5절) 그대로 만든다. 그래야 실서버로 바꿀 때 화면과 `mappers.ts`를 그대로 쓴다.
+백엔드 응답 모양(BACKEND_API.md 5절) 그대로 만든다. 그래야 실서버로 바꿀 때 화면과 `src/api/`를 그대로 쓴다.
 
 작업 1건 = 규정 v3 → v4 업로드 1번. 요건은 3건이 함께 나온다.
 
@@ -158,7 +158,7 @@ mock은 같은 모양으로 응답하고, `createTask` 뒤 시간 흐름으로 �
 |---|---|
 | `vite.config.ts` | 개발 서버의 `/api` 요청을 백엔드(`localhost:8080`)로 프록시 |
 | `src/api/client.ts` | `Authorization: Bearer` 토큰, 에러 형식 `{error, message}`, 401이면 로그인으로 |
-| `src/api/mappers.ts` | 서버 JSON → 도메인 타입 (`detail` · `payload` 제거) |
+| `src/api/types.ts` | 응답 모양이 달라진 항목. 도메인 타입이 응답과 같아서 변환 층(`mappers.ts`)은 두지 않는다 |
 | `src/composables/useTaskPolling.ts` | `GET /tasks/{id}` + `/events?after=` 폴링 (SSE는 나중에) |
 
 ## 9. 배포
@@ -188,3 +188,4 @@ mock은 같은 모양으로 응답하고, `createTask` 뒤 시간 흐름으로 �
 
 - 제15조의2(④ 신규)를 시연에 넣을지. 정답지에는 요건으로 들어 있어서 가짜 데이터에 넣었다.
 - `articleRef`에 조항 제목도 넣을지 (`제15조` → `제15조(고령자 기준)`).
+- 평가의 `keywordBaseline` 모양. 프론트는 `{missed: specKey[], wrong: specKey[]}`로 가정했다 (`src/domain/report.ts`). `counts`는 쓰지 않는다.

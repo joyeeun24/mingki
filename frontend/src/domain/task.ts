@@ -1,3 +1,5 @@
+import type { Role } from './user'
+
 /** 작업 상태. 서버가 바꾸고 화면은 읽기만 한다 */
 export type TaskStatus =
   | 'EXTRACTING' // 요건 추출 중
@@ -12,6 +14,13 @@ export type TaskStatus =
   | 'HELD' // 요건 전부 보류로 종료
   | 'REJECTED' // 검토에서 거절로 종료
   | 'FAILED' // 시스템 오류
+
+/** 지금 사람이 해야 할 일. 백엔드가 status에서 계산해 준다. 없으면 null */
+export interface PendingAction {
+  step: 'REQUIREMENTS' | 'REVIEW'
+  role: Role
+  path: string // 예: /tasks/{id}/requirements
+}
 
 /** 규정 v3 → v4 업로드 1건에 대한 분석 작업 */
 export interface AnalysisTask {

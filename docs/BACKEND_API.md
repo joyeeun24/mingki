@@ -153,7 +153,7 @@ POST {AGENT_BASE_URL}/resume
 | `POST /test-cases` | test_agent | `{items:[{testKey, reqKey, name, kind:"BOUNDARY"\|"EFFECTIVE_DATE"\|"SYSTEM"\|"UNIT", code, detail}]}` — **한 번만**, 두 번째는 409 |
 | `PUT /patches` | design · verify | `{items:[{bundle, round, filePath, specKeys, diff, verifyStatus, verifyLog, failureKind, detail}]}` — (bundle, round, filePath) upsert. verify 결과만 보낼 땐 diff 생략 |
 | `PUT /report` | report | `{markdown, summary, …}` 자유 형식 |
-| `PUT /evaluation` | 평가 스크립트 | `{locate:{recall, precision}, trapErrors, verifyPassRate:{round1, round2}, keywordBaseline:{…}, elapsedSec}` |
+| `PUT /evaluation` | 평가 스크립트 | `{locate:{recall, precision}, trapErrors, verifyPassRate:{round1, round2}, keywordBaseline:{missed:[specKey], wrong:[specKey]}, elapsedSec}` — `keywordBaseline` 모양은 프론트 제안, 평가 스크립트와 확정 필요 |
 
 **순서 규칙**
 1. 노드에 들어갈 때 `STEP {node}` → 상태가 자동으로 바뀐다 (`requirement_agent`→EXTRACTING, `test_agent`·`locate_agent`→LOCATING, `plan`·`worker`·`merge`·`design_agent`→DESIGNING, `verify`→VERIFYING, `publish`→PUBLISHING).
