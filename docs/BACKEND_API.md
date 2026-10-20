@@ -103,6 +103,13 @@ EXTRACTING ─▶ WAITING_REQUIREMENT_APPROVAL ─(확정)─▶ LOCATING ─▶
 // Patch
 {"id":7,"bundle":"eligibility","round":2,"specKeys":["S1","S4"],"filePath":"loan/eligibility.py",
  "diff":"--- a/…\n+++ b/…","verifyStatus":"PASSED","verifyLog":"…","failureKind":null,"latest":true,"detail":{}}
+
+// Approval — ① 요건 확정은 요청 값 그대로 CONFIRMED(하나라도 확정) · HELD(전부 보류)
+{"id":1,"step":"REQUIREMENTS","decision":"CONFIRMED","approverId":1,
+ "approver":{"userId":1,"username":"officer1","displayName":"김준법","role":"OFFICER"},"comment":"R2 보류",
+ "payload":{"decisions":[{"requirementId":1,"reqKey":"R1","decision":"CONFIRMED"},…],"confirmedReqKeys":["R1"]},
+ "createdAt":"…"}
+// ② 검토 · 승인은 step "REVIEW", decision APPROVE · REJECT · REQUEST_CHANGES
 ```
 
 `changeType`: `VALUE`(①) · `LOGIC`(②) · `DB`(③) · `NEW`(④).
@@ -136,6 +143,8 @@ POST {AGENT_BASE_URL}/resume
 {"taskId","threadId","step":"REQUIREMENTS"|"REVIEW","decision","approvalId","comment","payload","callbackBaseUrl"}
 ```
 
+`decision`: REQUIREMENTS면 `CONFIRMED` · `HELD`, REVIEW면 `APPROVE` · `REJECT` · `REQUEST_CHANGES`.
+
 `/resume`의 payload
 - REQUIREMENTS: `{decisions:[{requirementId, reqKey, decision}], confirmedReqKeys:[…]}`
 - REVIEW: `{excludedSpecKeys:[…], approvedPatchIds:[…]}` (APPROVE일 때만 approvedPatchIds)
@@ -160,6 +169,15 @@ POST {AGENT_BASE_URL}/resume
 2. interrupt 직전에 산출물을 저장하고 `APPROVAL_REQUIRED {step}`을 보낸다.
 3. 실질 변경 0건이면 `PUT /report` 후 `DONE {outcome:"NO_CHANGE"}`.
 4. 끝나면 `PUT /report` 후 `DONE {outcome}`. 오류는 `FAILED {reason}`.
+5. 위 4절 그림에 없는 전이는 409. `WAITING_*`에서 나가는 전이는 승인 API만 한다 (Agent는 `FAILED`만 가능). 종료 상태는 같은 outcome의 `DONE`만 받는다.
+6. 산출물 저장 가능 상태 (그 밖에는 409)
+
+| 경로 | 상태 |
+|---|---|
+| `PUT /requirements` | EXTRACTING |
+| `PUT /change-specs` | LOCATING · DESIGNING · VERIFYING |
+| `POST /test-cases` | LOCATING |
+| `PUT /patches` | DESIGNING · VERIFYING (검토 대기부터 고정) |
 
 ## 7. 쓰기 도구 (승인 필요)
 
