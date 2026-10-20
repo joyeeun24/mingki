@@ -54,7 +54,7 @@ describe('scenario: 시각으로 단계와 데이터를 계산한다', () => {
     const s = afterConfirm(0)
     expect(s.requirements.every((r) => r.status === 'CONFIRMED')).toBe(true)
     expect(s.approvals).toHaveLength(1)
-    expect(s.approvals[0]).toMatchObject({ step: 'REQUIREMENTS', decision: 'CONFIRM' })
+    expect(s.approvals[0]).toMatchObject({ step: 'REQUIREMENTS', decision: 'CONFIRMED' })
     expect(s.changeSpecs).toEqual([]) // 탐색 중에는 아직 없다
     expect(afterConfirm(S.locating).changeSpecs).toHaveLength(21)
   })

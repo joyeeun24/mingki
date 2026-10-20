@@ -11,6 +11,7 @@ import type {
   RegulationDocument,
   Report,
   Requirement,
+  RequirementDecision,
   ReviewDecision,
   Role,
   TaskStatus,
@@ -61,9 +62,6 @@ export interface RequirementsResponse {
   documents: RegulationDocument[]
   requirements: Requirement[]
 }
-
-/** 요청은 CONFIRMED · HELD, 응답(Approval.decision)은 CONFIRM · HOLD. 백엔드가 그렇게 나뉜다 */
-export type RequirementDecision = 'CONFIRMED' | 'HELD'
 
 export interface ApproveRequirementsRequest {
   decisions: { requirementId: number; decision: RequirementDecision }[] // 모든 요건에 결정 필요

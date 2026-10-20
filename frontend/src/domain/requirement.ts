@@ -1,6 +1,9 @@
 /** PROPOSED: 확정 전, CONFIRMED: 확정, HELD: 보류 */
 export type RequirementStatus = 'PROPOSED' | 'CONFIRMED' | 'HELD'
 
+/** 요건 확정에서 고르는 값. 요청과 승인 기록(Approval.decision)에 같은 이름을 쓴다 */
+export type RequirementDecision = Exclude<RequirementStatus, 'PROPOSED'>
+
 /** requirement_agent가 신 · 구 조항을 비교해 뽑은 요건 */
 export interface Requirement {
   id: number
