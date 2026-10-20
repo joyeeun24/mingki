@@ -1,4 +1,4 @@
-// 가짜 서버의 핵심. 사람이 한 일(업로드 · 확정 · 승인)의 시각과 지금 시각만으로
+// 가짜 서버의 계산 부분. 사람이 한 일(업로드 · 요건 확정 · 승인)과 지금 시각만으로
 // 작업이 어느 단계인지와 그 단계에서 보이는 데이터를 계산한다. 타이머가 없어서 새로고침 · 테스트에 강하다.
 import type {
   AnalysisTask,
@@ -11,17 +11,28 @@ import type {
   RegulationDocument,
   Report,
   Requirement,
+  RequirementDecision,
   TaskStatus,
   TestCase,
+  User,
 } from '@/domain'
 
 import * as fixture from './fixtures/creditLoan'
+import { users } from './fixtures/users'
 
-/** 사람이 한 일의 시각 (ms). 업로드만 있으면 요건 확정 대기에서, 확정까지 있으면 검토 대기에서 멈춘다 */
+/** 사람이 한 일. 시각은 ms. 요건 확정 전엔 확정 대기에서, 승인 전엔 검토 대기에서 멈춘다 */
 export interface TaskEvents {
   uploadedAt: number
-  confirmedAt: number | null
-  approvedAt: number | null
+  requesterId: number
+  title: string
+  filenames: { old: string; new: string }
+  requirements: {
+    at: number
+    by: number // userId
+    decisions: Record<number, RequirementDecision> // requirementId → 결정
+    comment: string | null
+  } | null
+  review: { at: number; by: number; comment: string | null } | null
 }
 
 /** 자동 단계가 걸리는 시간 (ms). 발표 속도에 맞춰 여기만 고친다 */
@@ -54,7 +65,8 @@ export interface Snapshot {
 
 interface Phase {
   status: TaskStatus
-  node: string
+  node: string // 백엔드 currentNode와 같은 값
+  startedAt: number // 이 단계가 시작된 시각 → task.updatedAt
   verifyRound: number
   verifying: boolean // 현재 회차 패치가 아직 검증 중
   showSpecs: boolean
@@ -63,68 +75,70 @@ interface Phase {
 
 function phaseOf(events: TaskEvents, now: number): Phase {
   const S = SCHEDULE
-  const base = { verifyRound: 0, verifying: false, showSpecs: false, finished: false }
+  const idle = { verifyRound: 0, verifying: false, showSpecs: false, finished: false }
 
   if (now - events.uploadedAt < S.extracting) {
-    return { ...base, status: 'EXTRACTING', node: 'requirement_agent' }
+    return {
+      ...idle,
+      status: 'EXTRACTING',
+      node: 'requirement_agent',
+      startedAt: events.uploadedAt,
+    }
   }
-  if (events.confirmedAt === null) {
-    return { ...base, status: 'WAITING_REQUIREMENT_APPROVAL', node: 'requirement_agent' }
+  const decided = events.requirements
+  if (decided === null) {
+    const startedAt = events.uploadedAt + S.extracting
+    return {
+      ...idle,
+      status: 'WAITING_REQUIREMENT_APPROVAL',
+      node: 'interrupt_requirements',
+      startedAt,
+    }
+  }
+  if (!Object.values(decided.decisions).includes('CONFIRMED')) {
+    return { ...idle, status: 'HELD', node: 'interrupt_requirements', startedAt: decided.at }
   }
 
-  const t = now - events.confirmedAt
-  const steps: [until: number, phase: Phase][] = [
-    [S.locating, { ...base, status: 'LOCATING', node: 'locate_agent' }],
-    [S.designing, { ...base, status: 'DESIGNING', node: 'design_agent', showSpecs: true }],
+  const specs = { ...idle, showSpecs: true }
+  const steps: [duration: number, phase: Omit<Phase, 'startedAt'>][] = [
+    [S.locating, { ...idle, status: 'LOCATING', node: 'locate_agent' }],
+    [S.designing, { ...specs, status: 'DESIGNING', node: 'design_agent' }],
     [
       S.verifying1,
-      {
-        status: 'VERIFYING',
-        node: 'verify',
-        verifyRound: 1,
-        verifying: true,
-        showSpecs: true,
-        finished: false,
-      },
+      { ...specs, status: 'VERIFYING', node: 'verify', verifyRound: 1, verifying: true },
     ],
-    [
-      S.redesigning,
-      {
-        status: 'DESIGNING',
-        node: 'design_agent',
-        verifyRound: 1,
-        verifying: false,
-        showSpecs: true,
-        finished: false,
-      },
-    ],
+    [S.redesigning, { ...specs, status: 'DESIGNING', node: 'design_agent', verifyRound: 1 }],
     [
       S.verifying2,
-      {
-        status: 'VERIFYING',
-        node: 'verify',
-        verifyRound: 2,
-        verifying: true,
-        showSpecs: true,
-        finished: false,
-      },
+      { ...specs, status: 'VERIFYING', node: 'verify', verifyRound: 2, verifying: true },
     ],
   ]
-  let until = 0
+  let startedAt = decided.at
   for (const [duration, phase] of steps) {
-    until += duration
-    if (t < until) return phase
+    if (now < startedAt + duration) return { ...phase, startedAt }
+    startedAt += duration
   }
 
-  const reviewed = { verifyRound: 2, verifying: false, showSpecs: true, finished: false }
-  if (events.approvedAt === null) return { ...reviewed, status: 'WAITING_REVIEW', node: 'verify' }
-  if (now - events.approvedAt < S.publishing)
-    return { ...reviewed, status: 'PUBLISHING', node: 'publish' }
-  return { ...reviewed, status: 'DONE', node: 'report', finished: true }
+  const reviewed = { ...specs, verifyRound: MAX_VERIFY_ROUNDS }
+  const review = events.review
+  if (review === null) {
+    return { ...reviewed, status: 'WAITING_REVIEW', node: 'interrupt_review', startedAt }
+  }
+  if (now - review.at < S.publishing) {
+    return { ...reviewed, status: 'PUBLISHING', node: 'publish', startedAt: review.at }
+  }
+  const doneAt = review.at + S.publishing
+  return { ...reviewed, status: 'DONE', node: 'report', startedAt: doneAt, finished: true }
 }
 
 function iso(ms: number) {
   return new Date(ms).toISOString()
+}
+
+function userById(userId: number): User {
+  const user = users.find((u) => u.userId === userId)
+  if (!user) throw new Error(`알 수 없는 사용자 ${userId}`)
+  return user
 }
 
 export function derivePendingAction(status: TaskStatus, taskId: string): PendingAction | null {
@@ -137,17 +151,17 @@ export function derivePendingAction(status: TaskStatus, taskId: string): Pending
   return null
 }
 
-/** 보이는 회차까지만 남기고, 묶음마다 가장 최근 회차를 latest로, 검증 중인 회차는 PENDING으로 */
+/** 보이는 회차까지만 남기고, (묶음, 파일)마다 가장 최근 회차를 latest로, 검증 중인 회차는 PENDING으로 */
 function visiblePatches(phase: Phase): CodePatch[] {
   const visible = fixture.patches.filter((p) => p.round <= phase.verifyRound)
+  const key = (p: CodePatch) => `${p.bundle}::${p.filePath}`
   const latestRound = new Map<string, number>()
-  for (const p of visible)
-    latestRound.set(p.bundle, Math.max(latestRound.get(p.bundle) ?? 0, p.round))
+  for (const p of visible) latestRound.set(key(p), Math.max(latestRound.get(key(p)) ?? 0, p.round))
   return visible.map((p) => {
     const pending = phase.verifying && p.round === phase.verifyRound
     return {
       ...p,
-      latest: latestRound.get(p.bundle) === p.round,
+      latest: latestRound.get(key(p)) === p.round,
       verifyStatus: pending ? 'PENDING' : p.verifyStatus,
       verifyLog: pending ? null : p.verifyLog,
       failureKind: pending ? null : p.failureKind,
@@ -155,51 +169,79 @@ function visiblePatches(phase: Phase): CodePatch[] {
   })
 }
 
-export function canApprove(patches: CodePatch[]): boolean {
-  const latest = patches.filter((p) => p.latest)
-  return latest.length > 0 && latest.every((p) => p.verifyStatus === 'PASSED')
+function approvalsOf(events: TaskEvents): Approval[] {
+  const approvals: Approval[] = []
+  const decided = events.requirements
+  if (decided) {
+    const confirmed = Object.values(decided.decisions).includes('CONFIRMED')
+    approvals.push({
+      id: 1,
+      step: 'REQUIREMENTS',
+      decision: confirmed ? 'CONFIRMED' : 'HELD',
+      approverId: decided.by,
+      approver: userById(decided.by),
+      comment: decided.comment,
+      createdAt: iso(decided.at),
+    })
+  }
+  if (events.review) {
+    approvals.push({
+      id: 2,
+      step: 'REVIEW',
+      decision: 'APPROVE',
+      approverId: events.review.by,
+      approver: userById(events.review.by),
+      comment: events.review.comment,
+      createdAt: iso(events.review.at),
+    })
+  }
+  return approvals
 }
 
 export function scenario(taskId: string, events: TaskEvents, now: number): Snapshot {
   const phase = phaseOf(events, now)
-  const extracted = phase.status !== 'EXTRACTING'
-  const confirmed = events.confirmedAt !== null
+  const decisions = events.requirements?.decisions ?? {}
 
   const task: AnalysisTask = {
     ...fixture.task,
     id: taskId,
+    title: events.title,
     status: phase.status,
     currentNode: phase.node,
     verifyRound: phase.verifyRound,
+    requesterId: events.requesterId,
     createdAt: iso(events.uploadedAt),
-    updatedAt: iso(now),
+    updatedAt: iso(phase.startedAt),
   }
-
-  const requirements = extracted
-    ? fixture.requirements.map((r) => ({ ...r, status: confirmed ? r.status : 'PROPOSED' }))
-    : []
+  const [oldDoc, newDoc] = fixture.documents
+  const documents = [
+    { ...oldDoc!, filename: events.filenames.old },
+    { ...newDoc!, filename: events.filenames.new },
+  ]
+  const requirements =
+    phase.status === 'EXTRACTING'
+      ? []
+      : fixture.requirements.map((r) => ({ ...r, status: decisions[r.id] ?? 'PROPOSED' }))
   const patches = visiblePatches(phase)
-
-  const approvals: Approval[] = []
-  const [requirementApproval, reviewApproval] = fixture.approvals
-  if (confirmed && requirementApproval) {
-    approvals.push({ ...requirementApproval, createdAt: iso(events.confirmedAt!) })
-  }
-  if (events.approvedAt !== null && reviewApproval) {
-    approvals.push({ ...reviewApproval, createdAt: iso(events.approvedAt) })
-  }
+  const latest = patches.filter((p) => p.latest)
+  const deliveries = phase.finished
+    ? fixture.deliveries.map((d) => ({ ...d, createdAt: iso(phase.startedAt) }))
+    : []
 
   return {
     task,
-    documents: fixture.documents,
+    documents,
     pendingAction: derivePendingAction(phase.status, taskId),
     requirements,
     changeSpecs: phase.showSpecs ? fixture.changeSpecs : [],
     testCases: phase.showSpecs ? fixture.testCases : [],
     patches,
-    canApprove: phase.status === 'WAITING_REVIEW' && canApprove(patches),
-    approvals,
-    deliveries: phase.finished ? fixture.deliveries : [],
+    canApprove:
+      phase.status === 'WAITING_REVIEW' &&
+      latest.length > 0 &&
+      latest.every((p) => p.verifyStatus === 'PASSED'),
+    approvals: approvalsOf(events),
+    deliveries,
     report: phase.finished ? fixture.report : null,
     evaluation: phase.finished ? fixture.evaluation : null,
   }
