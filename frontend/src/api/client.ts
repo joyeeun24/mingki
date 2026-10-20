@@ -4,9 +4,15 @@ import type { ApiErrorBody } from './types'
 const base = import.meta.env.VITE_API_BASE || '/api'
 
 let token: string | null = null
+let onUnauthorized: (() => void) | null = null
 
 export function setToken(value: string | null) {
   token = value
+}
+
+/** 토큰을 실어 보낸 요청이 401을 받으면 부른다 (로그인 실패 401은 해당 없음). main.ts에서 등록 */
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorized = handler
 }
 
 export class ApiError extends Error {
@@ -30,6 +36,7 @@ interface RequestOptions {
 /** 서버 호출은 전부 이 함수를 거친다. 비2xx는 ApiError로 던진다 */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = new Headers()
+  const sentToken = token !== null
   if (token) headers.set('Authorization', `Bearer ${token}`)
   if (options.json !== undefined) headers.set('Content-Type', 'application/json')
 
@@ -42,6 +49,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as ApiErrorBody | null
+    if (response.status === 401 && sentToken) onUnauthorized?.()
     throw new ApiError(
       response.status,
       body?.error ?? 'UNKNOWN',

@@ -9,12 +9,12 @@ import type {
   LoginResponse,
   ReviewRequest,
   TaskCreated,
-  TaskDetail,
 } from '@/api/types'
 import type { User } from '@/domain'
 
 import { users } from './fixtures/users'
-import { MAX_VERIFY_ROUNDS, type Snapshot, type TaskEvents, scenario } from './scenario'
+import { changeSpecsResponse, patchesResponse, requirementsResponse, taskDetail } from './responses'
+import { type Snapshot, type TaskEvents, scenario } from './scenario'
 import type { MockStore } from './store'
 
 export interface MockOptions {
@@ -149,28 +149,14 @@ export function createHandlers({ store, now, delayMs }: MockOptions): RequestHan
     http.get(taskPath(), async ({ request, params }) => {
       const at = await tick()
       userFrom(request)
-      const { snapshot: s } = load(idOf(params), at)
-      return HttpResponse.json<TaskDetail>({
-        task: s.task,
-        errorMessage: null,
-        maxVerifyRounds: MAX_VERIFY_ROUNDS,
-        documents: s.documents,
-        pendingAction: s.pendingAction,
-        approvals: s.approvals,
-        deliveries: s.deliveries,
-      })
+      return HttpResponse.json(taskDetail(load(idOf(params), at).snapshot))
     }),
 
     // ---------- ① 요건 확정 ----------
     http.get(taskPath('/requirements'), async ({ request, params }) => {
       const at = await tick()
       userFrom(request)
-      const { snapshot: s } = load(idOf(params), at)
-      return HttpResponse.json({
-        task: s.task,
-        documents: s.documents,
-        requirements: s.requirements,
-      })
+      return HttpResponse.json(requirementsResponse(load(idOf(params), at).snapshot))
     }),
 
     http.post(taskPath('/requirements/approval'), async ({ request, params }) => {
@@ -219,33 +205,14 @@ export function createHandlers({ store, now, delayMs }: MockOptions): RequestHan
     http.get(taskPath('/change-specs'), async ({ request, params }) => {
       const at = await tick()
       userFrom(request)
-      const { snapshot: s } = load(idOf(params), at)
-      return HttpResponse.json({
-        task: s.task,
-        targets: s.changeSpecs.filter((c) => c.target),
-        nonTargets: s.changeSpecs.filter((c) => !c.target),
-      })
+      return HttpResponse.json(changeSpecsResponse(load(idOf(params), at).snapshot))
     }),
 
     // ---------- ② 검토 · 승인 ----------
     http.get(taskPath('/patches'), async ({ request, params }) => {
       const at = await tick()
       userFrom(request)
-      const { snapshot: s } = load(idOf(params), at)
-      const latest = s.patches.filter((p) => p.latest)
-      const passed = latest.filter((p) => p.verifyStatus === 'PASSED').length
-      const failed = latest.filter((p) => p.verifyStatus === 'FAILED').length
-      return HttpResponse.json({
-        task: s.task,
-        maxVerifyRounds: MAX_VERIFY_ROUNDS,
-        latestRound: Math.max(0, ...s.patches.map((p) => p.round)),
-        passed,
-        failed,
-        pending: latest.length - passed - failed,
-        canApprove: s.canApprove,
-        patches: s.patches,
-        testCases: s.testCases,
-      })
+      return HttpResponse.json(patchesResponse(load(idOf(params), at).snapshot))
     }),
 
     http.post(taskPath('/review'), async ({ request, params }) => {
