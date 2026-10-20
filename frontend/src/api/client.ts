@@ -1,7 +1,7 @@
 import type { ApiErrorBody } from './types'
 
-// 개발 · 운영은 .env.*의 /api, 테스트는 vite.config.ts test.env의 절대 주소
-const base = import.meta.env.VITE_API_BASE || '/api'
+/** 개발 · 운영은 .env.*의 /api, 테스트는 vite.config.ts test.env의 절대 주소. 가짜 서버도 이 값을 쓴다 */
+export const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
 let token: string | null = null
 let onUnauthorized: (() => void) | null = null
@@ -41,7 +41,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (options.json !== undefined) headers.set('Content-Type', 'application/json')
 
   // msw/node가 상대 URL을 가로채려면 Request 객체가 아니라 문자열로 넘겨야 한다
-  const response = await fetch(`${base}${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     method: options.method ?? 'GET',
     headers,
     body: options.json !== undefined ? JSON.stringify(options.json) : options.form,

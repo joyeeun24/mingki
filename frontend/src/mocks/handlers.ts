@@ -1,7 +1,10 @@
 // 가짜 서버의 응답 부분. 요청 → 로그인 확인 → 검사 → 저장 → scenario 계산 결과를 백엔드 응답 모양으로.
 // 검사 규칙과 오류 문구는 백엔드(TaskService, ApiExceptionHandler)와 같다.
 // 상태 변화는 데모 화면에서 누를 수 있는 것(업로드 · 요건 확정 · 승인)만 흉내 낸다.
+// 경로는 API_BASE(/api)에 고정한다. '*/api/*'처럼 넓게 잡으면 /src/api/*.ts 같은 소스 파일 요청까지 가로챈다.
 import { delay, http, HttpResponse, type RequestHandler } from 'msw'
+
+import { API_BASE } from '@/api/client'
 
 import type {
   ApproveRequirementsRequest,
@@ -92,12 +95,12 @@ export function createHandlers({ store, now, delayMs }: MockOptions): RequestHan
     return { events, snapshot: scenario(taskId, events, at) }
   }
 
-  const taskPath = (rest = '') => `*/api/ai/tasks/:id${rest}`
+  const taskPath = (rest = '') => `${API_BASE}/ai/tasks/:id${rest}`
   const idOf = (params: Record<string, unknown>) => String(params.id)
 
   return [
     // ---------- 인증 ----------
-    http.post('*/api/auth/login', async ({ request }) => {
+    http.post(`${API_BASE}/auth/login`, async ({ request }) => {
       await tick()
       const body = await readJson<Partial<LoginRequest>>(request)
       const user = users.find((u) => u.username === body.username)
@@ -105,13 +108,13 @@ export function createHandlers({ store, now, delayMs }: MockOptions): RequestHan
       return HttpResponse.json<LoginResponse>({ token: tokenOf(user), ...user })
     }),
 
-    http.get('*/api/auth/me', async ({ request }) => {
+    http.get(`${API_BASE}/auth/me`, async ({ request }) => {
       await tick()
       return HttpResponse.json<User>(userFrom(request))
     }),
 
     // ---------- 생성 ----------
-    http.post('*/api/ai/tasks', async ({ request }) => {
+    http.post(`${API_BASE}/ai/tasks`, async ({ request }) => {
       const at = await tick()
       const user = userFrom(request)
       const form = await request.formData().catch(() => fail(400, 'oldFile 파일이 필요합니다'))
@@ -271,7 +274,7 @@ export function createHandlers({ store, now, delayMs }: MockOptions): RequestHan
     }),
 
     // 목록 · 이벤트 등 흉내 내지 않는 주소. 개발 서버의 index.html로 새지 않게 막는다
-    http.all('*/api/*', async () => {
+    http.all(`${API_BASE}/*`, async () => {
       await tick()
       return fail(501, '가짜 서버가 지원하지 않는 요청입니다 (데모 범위 밖)')
     }),

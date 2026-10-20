@@ -15,7 +15,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.spec.ts'],
-    // msw/node는 절대 주소만 가로챈다. 가짜 서버 경로는 '*/api/...'라 어느 주소든 맞는다
+    // msw/node는 절대 주소만 가로챈다. 가짜 서버 경로도 이 값(API_BASE)을 쓴다
     env: { VITE_API_BASE: 'http://localhost/api' },
     environmentOptions: { jsdom: { url: 'http://localhost/' } },
   },
