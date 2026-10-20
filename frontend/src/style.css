@@ -2,8 +2,17 @@
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@plugin '@tailwindcss/typography';
 
 @custom-variant dark (&:is(.dark *));
+
+/* shadcn-vue 컴포넌트는 data-open: 같은 축약 조건을 쓰지만 reka-ui는 data-state · data-orientation만 붙인다 */
+@custom-variant data-open (&[data-state='open']);
+@custom-variant data-closed (&[data-state='closed']);
+@custom-variant data-checked (&[data-state='checked']);
+@custom-variant data-active (&[data-state='active']);
+@custom-variant data-horizontal (&[data-orientation='horizontal']);
+@custom-variant data-vertical (&[data-orientation='vertical']);
 
 @theme inline {
   --font-sans: 'Noto Sans KR', ui-sans-serif, system-ui, sans-serif;
