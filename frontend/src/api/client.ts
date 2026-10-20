@@ -1,6 +1,6 @@
 import type { ApiErrorBody } from './types'
 
-// 테스트 모드에서는 .env.development가 실리지 않으므로 기본값을 둔다
+// 개발 · 운영은 .env.*의 /api, 테스트는 vite.config.ts test.env의 절대 주소
 const base = import.meta.env.VITE_API_BASE || '/api'
 
 let token: string | null = null
